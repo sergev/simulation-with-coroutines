@@ -65,20 +65,48 @@ void simulator_t::run()
     }
 
     while (event_queue != nullptr) {
-#if 0
         if (event_queue->delay != 0) {
             // Delta cycle finished.
             // Schedule processes for active signals.
-            while (signal_active != 0) {
-                //TODO: activate signals
+            while (active_signals != nullptr) {
+                sensitivity_t *hook = active_signals->hook_list;
+                signal_t *next = active_signals->next;
+
+                // Handle all processes, sensitive to this signal.
+                for (; hook != nullptr; hook = hook->next) {
+                    if (hook->process.next == nullptr) {
+                        // Signal change should matches the edge flag.
+                        if ((hook->edge & POSEDGE) &&
+                            (active_signals->value != 0 ||
+                             active_signals->new_value == 0))
+                            continue;
+                        if ((hook->edge & NEGEDGE) &&
+                            (active_signals->value == 0 ||
+                             active_signals->new_value != 0))
+                            continue;
+
+                        // Put the process to queue of pending events.
+                        hook->process.next = event_queue;
+                        event_queue = &hook->process;
+
+                        //std::cout << '(' << time_ticks << ") Process '"
+                        //          << hook->process.name << "' activated" << std::endl;
+                    }
+                }
+
+                // Setup a new signal value.
+                active_signals->value = active_signals->new_value;
+                active_signals->next = nullptr;
+                active_signals->is_active = false;
+                active_signals = next;
             }
-            std::cout << '(' << time_ticks << ") ---" << std::endl;
+            //std::cout << '(' << time_ticks << ") ---" << std::endl;
         }
-#endif
+
         // Select next process from the queue.
         cur_proc = event_queue;
         event_queue = event_queue->next;
-        cur_proc->next = 0;
+        cur_proc->next = nullptr;
         if (cur_proc->delay != 0) {
             // Advance time.
             time_ticks += cur_proc->delay;
@@ -105,7 +133,7 @@ void simulator_t::finish()
 // This routine should be invoked as:
 //      co_await sim.delay(N);
 //
-simulator_t::co_await_t simulator_t::delay(uint64_t num_clocks)
+co_await_t simulator_t::delay(uint64_t num_clocks)
 {
     // Put the current process to queue of pending events.
     // Keep the queue sorted.
@@ -127,4 +155,55 @@ simulator_t::co_await_t simulator_t::delay(uint64_t num_clocks)
 
     // On return, suspend the currect coroutine and switch back to sim.run().
     return {};
+}
+
+//
+// Set value of the signal.
+// The value will be updated on next simulation cycle.
+// If the value changed, put the signal to the active list.
+//
+void simulator_t::set(signal_t &signal, uint64_t v)
+{
+    signal.new_value = v;
+
+    if (v != signal.value && !signal.is_active) {
+        // Value has changed - put to the list of active signals.
+        signal.is_active = true;
+        signal.next = active_signals;
+        active_signals = &signal;
+
+        //std::cout << '(' << time_ticks << ") Signal '" << signal.name
+        //          << "' changed = " << signal.new_value << std::endl;
+    }
+}
+
+//
+// Constructor: bind the current process to a signal,
+// sensitive to the specified edge (positive or negative or both).
+//
+sensitivity_t::sensitivity_t(simulator_t &sim, signal_t &sig, int which_edge)
+    : process(sim.current_process()), signal(sig), edge(which_edge)
+{
+    // Add this hook to the sensitivity list of the given signal.
+    next = sig.hook_list;
+    prev = nullptr;
+    if (next != nullptr)
+        next->prev = this;
+    sig.hook_list = this;
+}
+
+//
+// Destructor: unbind the process from the signal.
+//
+sensitivity_t::~sensitivity_t()
+{
+    if (next != nullptr) {
+        next->prev = prev;
+    }
+    if (prev != nullptr) {
+        prev->next = next;
+    }
+    if (signal.hook_list == this) {
+        signal.hook_list = next;
+    }
 }

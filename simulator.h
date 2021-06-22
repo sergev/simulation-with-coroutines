@@ -59,31 +59,50 @@ private:
 };
 
 //
+// Forward declarations.
+//
+class signal_t;
+class sensitivity_t;
+
+//
+// Info about the process.
+//
+class process_t {
+    friend class simulator_t;
+
+private:
+    process_t *next{ nullptr };             // Member of event queue
+    std::string name;                       // Name for log file
+    uint64_t delay{ 0 };                    // Time to wait
+    std::coroutine_handle<> continuation{}; // Handle for coroutine continuation
+
+public:
+    // Allocate a process with given name.
+    explicit process_t(const std::string &n) : name(n) {}
+
+    // Get name.
+    const std::string &get_name() { return name; }
+};
+
+//
+// Info for co_await, to switch from coroutine back to sim.run().
+//
+struct co_await_t {
+    constexpr bool await_ready() const noexcept { return false; }
+    void await_suspend(std::coroutine_handle<> handle) {}
+    constexpr void await_resume() const noexcept {}
+};
+
+//
 // Discrete time simulator based on coroutines.
 //
 class simulator_t {
 private:
-    // Info about the process.
-    struct process_t {
-        process_t *next{ nullptr };             // Member of event queue
-        std::string name;                       // Name for log file
-        uint64_t delay{ 0 };                    // Time to wait
-        std::coroutine_handle<> continuation{}; // Handle for coroutine continuation
-
-        explicit process_t(const std::string &n) : name(n) {}
-    };
-
-    std::list<process_t> all_processes; // List of all processes.
-    process_t *cur_proc{ nullptr };     // Current active process
-    process_t *event_queue{ nullptr };  // Queue of pending events
-    uint64_t time_ticks{ 0 };           // Simulated time
-
-    // Info for co_await, to switch from coroutine back to sim.run().
-    struct co_await_t {
-        constexpr bool await_ready() const noexcept { return false; }
-        void await_suspend(std::coroutine_handle<> handle) {}
-        constexpr void await_resume() const noexcept {}
-    };
+    std::list<process_t> all_processes;     // List of all processes
+    process_t *cur_proc{ nullptr };         // Current active process
+    process_t *event_queue{ nullptr };      // Queue of pending events
+    signal_t *active_signals{ nullptr };    // List of active signals for the current cycle
+    uint64_t time_ticks{ 0 };               // Simulated time
 
 public:
     // Default constructor.
@@ -122,4 +141,97 @@ public:
     //      co_await sim.delay(N);
     //
     co_await_t delay(uint64_t num_clocks);
+
+    //
+    // Update value of signal.
+    //
+    void set(signal_t &signal, uint64_t value);
+
+    //
+    // Get current process.
+    //
+    process_t &current_process() { return *cur_proc; }
 };
+
+//
+// Signal: a value that may change and activate some processes.
+//
+class signal_t {
+    friend class simulator_t;
+    friend class sensitivity_t;
+
+private:
+    signal_t            *next{ nullptr };       // Member of active list
+    sensitivity_t       *hook_list{ nullptr };  // Sensitivity list: processes to activate
+    const std::string   name;                   // Name for log file
+    uint64_t            value;                  // Current value
+    uint64_t            new_value;              // Value for next cycle
+    bool                is_active{ false };     // When value has changed
+
+public:
+    // Allocate a signal with given name and optional value.
+    explicit signal_t(const std::string &n, uint64_t v = 0) : name(n), value(v), new_value(v) {}
+
+    // Get current value.
+    uint64_t get() { return value; }
+
+    // Get name.
+    const std::string &get_name() { return name; }
+};
+
+//
+// Sensitivity hook: connect a process to a signal.
+//
+class sensitivity_t {
+    friend class simulator_t;
+
+private:
+    sensitivity_t   *next, *prev;   // Member of sensitivity list
+    process_t       &process;       // Process to activate
+    signal_t        &signal;        // Signal to be activated from
+    int             edge;           // Edge, if nonzero
+
+public:
+    // Constructor: bind the current process to a signal,
+    // sensitive to the specified edge (positive or negative or both).
+    explicit sensitivity_t(simulator_t &sim, signal_t &sig, int which_edge = 0);
+
+    // Destructor: unbind the process from the signal.
+    ~sensitivity_t();
+};
+
+// Values for sensitivity_t::edge.
+enum {
+    POSEDGE = 0x1,  // Sensitive on positive edge of the signal
+    NEGEDGE = 0x2,  // Sensitive on negative edge of the signal
+};
+
+//
+// Wait for the signal.
+// Hook, wait, then unhook.
+//
+#define process_wait1(sim, _sig, _edge) { \
+        sensitivity_t _hook(_sim, _sig, _edge); \
+        co_wait co_await_t{}; \
+    }
+
+//
+// Wait for either of two signals.
+// Hook, wait, then unhook.
+//
+#define process_wait2(sim, _sig1, _edge1, _sig2, _edge2) { \
+        sensitivity_t _hook1(_sim, _sig1, _edge1); \
+        sensitivity_t _hook2(_sim, _sig2, _edge2); \
+        co_wait co_await_t{}; \
+    }
+
+//
+// Wait for either of three signals.
+// Hook, wait, then unhook.
+//
+#define process_wait3(sim, _sig1, _edge1, _sig2, _edge2, _sig3, _edge3) { \
+        sensitivity_t _hook1(_sim, _sig1, _edge1); \
+        sensitivity_t _hook2(_sim, _sig2, _edge2); \
+        sensitivity_t _hook3(_sim, _sig3, _edge3); \
+        co_wait co_await_t{}; \
+    }
