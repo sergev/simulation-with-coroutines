@@ -40,11 +40,11 @@ co_void_t do_clock(simulator_t &sim)
 {
     for (;;) {
         sim.set(clk, 1);
-        std::cout << '(' << sim.time() << ") Clock set" << std::endl;
+        //std::cout << '(' << sim.time() << ") Clock set" << std::endl;
         co_await sim.delay(1);
 
         sim.set(clk, 0);
-        std::cout << '(' << sim.time() << ") Clock reset" << std::endl;
+        //std::cout << '(' << sim.time() << ") Clock reset" << std::endl;
         co_await sim.delay(1);
     }
 }
