@@ -98,11 +98,11 @@ struct co_await_t {
 //
 class simulator_t {
 private:
-    std::list<process_t> all_processes;     // List of all processes
-    process_t *cur_proc{ nullptr };         // Current active process
-    process_t *event_queue{ nullptr };      // Queue of pending events
-    signal_t *active_signals{ nullptr };    // List of active signals for the current cycle
-    uint64_t time_ticks{ 0 };               // Simulated time
+    std::list<process_t> all_processes;  // List of all processes
+    process_t *cur_proc{ nullptr };      // Current active process
+    process_t *event_queue{ nullptr };   // Queue of pending events
+    signal_t *active_signals{ nullptr }; // List of active signals for the current cycle
+    uint64_t time_ticks{ 0 };            // Simulated time
 
 public:
     // Default constructor.
@@ -161,12 +161,12 @@ class signal_t {
     friend class sensitivity_t;
 
 private:
-    signal_t            *next{ nullptr };       // Member of active list
-    sensitivity_t       *hook_list{ nullptr };  // Sensitivity list: processes to activate
-    const std::string   name;                   // Name for log file
-    uint64_t            value;                  // Current value
-    uint64_t            new_value;              // Value for next cycle
-    bool                is_active{ false };     // When value has changed
+    signal_t *next{ nullptr };           // Member of active list
+    sensitivity_t *hook_list{ nullptr }; // Sensitivity list: processes to activate
+    const std::string name;              // Name for log file
+    uint64_t value;                      // Current value
+    uint64_t new_value;                  // Value for next cycle
+    bool is_active{ false };             // When value has changed
 
 public:
     // Allocate a signal with given name and optional value.
@@ -186,10 +186,10 @@ class sensitivity_t {
     friend class simulator_t;
 
 private:
-    sensitivity_t   *next, *prev;   // Member of sensitivity list
-    process_t       &process;       // Process to activate
-    signal_t        &signal;        // Signal to be activated from
-    int             edge;           // Edge, if nonzero
+    sensitivity_t *next, *prev; // Member of sensitivity list
+    process_t &process;         // Process to activate
+    signal_t &signal;           // Signal to be activated from
+    int edge;                   // Edge, if nonzero
 
 public:
     // Constructor: bind the current process to a signal,
@@ -202,36 +202,39 @@ public:
 
 // Values for sensitivity_t::edge.
 enum {
-    POSEDGE = 0x1,  // Sensitive on positive edge of the signal
-    NEGEDGE = 0x2,  // Sensitive on negative edge of the signal
+    POSEDGE = 0x1, // Sensitive on positive edge of the signal
+    NEGEDGE = 0x2, // Sensitive on negative edge of the signal
 };
 
 //
 // Wait for the signal.
 // Hook, wait, then unhook.
 //
-#define process_wait1(sim, _sig, _edge) { \
+#define process_wait1(sim, _sig, _edge)         \
+    {                                           \
         sensitivity_t _hook(_sim, _sig, _edge); \
-        co_wait co_await_t{}; \
+        co_wait co_await_t{};                   \
     }
 
 //
 // Wait for either of two signals.
 // Hook, wait, then unhook.
 //
-#define process_wait2(sim, _sig1, _edge1, _sig2, _edge2) { \
-        sensitivity_t _hook1(_sim, _sig1, _edge1); \
-        sensitivity_t _hook2(_sim, _sig2, _edge2); \
-        co_wait co_await_t{}; \
+#define process_wait2(sim, _sig1, _edge1, _sig2, _edge2) \
+    {                                                    \
+        sensitivity_t _hook1(_sim, _sig1, _edge1);       \
+        sensitivity_t _hook2(_sim, _sig2, _edge2);       \
+        co_wait co_await_t{};                            \
     }
 
 //
 // Wait for either of three signals.
 // Hook, wait, then unhook.
 //
-#define process_wait3(sim, _sig1, _edge1, _sig2, _edge2, _sig3, _edge3) { \
-        sensitivity_t _hook1(_sim, _sig1, _edge1); \
-        sensitivity_t _hook2(_sim, _sig2, _edge2); \
-        sensitivity_t _hook3(_sim, _sig3, _edge3); \
-        co_wait co_await_t{}; \
+#define process_wait3(sim, _sig1, _edge1, _sig2, _edge2, _sig3, _edge3) \
+    {                                                                   \
+        sensitivity_t _hook1(_sim, _sig1, _edge1);                      \
+        sensitivity_t _hook2(_sim, _sig2, _edge2);                      \
+        sensitivity_t _hook3(_sim, _sig3, _edge3);                      \
+        co_wait co_await_t{};                                           \
     }

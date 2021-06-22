@@ -21,9 +21,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-#include <iostream>
-
 #include "simulator.h"
+
+#include <iostream>
 
 //
 // Destroy coroutines in the destructor.
@@ -77,19 +77,17 @@ void simulator_t::run()
                     if (hook->process.next == nullptr) {
                         // Signal change should matches the edge flag.
                         if ((hook->edge & POSEDGE) &&
-                            (active_signals->value != 0 ||
-                             active_signals->new_value == 0))
+                            (active_signals->value != 0 || active_signals->new_value == 0))
                             continue;
                         if ((hook->edge & NEGEDGE) &&
-                            (active_signals->value == 0 ||
-                             active_signals->new_value != 0))
+                            (active_signals->value == 0 || active_signals->new_value != 0))
                             continue;
 
                         // Put the process to queue of pending events.
                         hook->process.next = event_queue;
                         event_queue = &hook->process;
 
-                        //std::cout << '(' << time_ticks << ") Process '"
+                        // std::cout << '(' << time_ticks << ") Process '"
                         //          << hook->process.name << "' activated" << std::endl;
                     }
                 }
@@ -100,7 +98,7 @@ void simulator_t::run()
                 active_signals->is_active = false;
                 active_signals = next;
             }
-            //std::cout << '(' << time_ticks << ") ---" << std::endl;
+            // std::cout << '(' << time_ticks << ") ---" << std::endl;
         }
 
         // Select next process from the queue.
@@ -172,7 +170,7 @@ void simulator_t::set(signal_t &signal, uint64_t v)
         signal.next = active_signals;
         active_signals = &signal;
 
-        //std::cout << '(' << time_ticks << ") Signal '" << signal.name
+        // std::cout << '(' << time_ticks << ") Signal '" << signal.name
         //          << "' changed = " << signal.new_value << std::endl;
     }
 }

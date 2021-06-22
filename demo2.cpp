@@ -28,10 +28,10 @@
 //
 // Signals.
 //
-signal_t clk("clock");      // Main clock of the design
-signal_t reset("reset");    // Active high, synchronous Reset
-signal_t enable("enable");  // Active high enable signal for counter
-signal_t count("count");    // 4-bit counter
+signal_t clk("clock");     // Main clock of the design
+signal_t reset("reset");   // Active high, synchronous Reset
+signal_t enable("enable"); // Active high enable signal for counter
+signal_t count("count");   // 4-bit counter
 
 //
 // Clock generator.
@@ -67,7 +67,7 @@ co_void_t do_counter(simulator_t &sim)
         if (reset.get() != 0) {
             sim.set(count, 0);
 
-        // If enable is active, then we increment the counter.
+            // If enable is active, then we increment the counter.
         } else if (enable.get() != 0) {
             std::cout << '(' << sim.time() << ") Increment Counter " << count.get() << std::endl;
             sim.set(count, (count.get() + 1) & 15);
