@@ -1,4 +1,5 @@
-CXX             = g++-10 -std=c++20 -fcoroutines
+CXX             = g++-11 -std=c++20 -fcoroutines
+#CXX             = /opt/homebrew/Cellar/llvm/14.0.6_1/bin/clang++ -std=c++20
 CXXFLAGS        = -g -O
 PROG            = demo1 demo2 demo3
 OBJ1            = demo1.o simulator.o
